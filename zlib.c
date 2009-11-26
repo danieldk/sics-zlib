@@ -28,6 +28,8 @@
 
 #include <sicstus/sicstus.h>
 
+/* Get the length of a Prolog list. Returns 0 if the provided term is not
+ * a list. */
 int list_length(SP_term_ref list, size_t *len)
 {
   if (!SP_is_list(list))
@@ -37,6 +39,7 @@ int list_length(SP_term_ref list, size_t *len)
   SP_term_ref tail = SP_new_term_ref();
   SP_term_ref tmp = list;
 
+  /* Chop off heads until the tail is empty */
   *len = 0;
   while (SP_get_list(tmp,head,tail) == SP_SUCCESS) {
     ++(*len);
@@ -46,9 +49,10 @@ int list_length(SP_term_ref list, size_t *len)
   return 1;
 }
 
-// Put the first n bytes of a Sicstus list in a buffer. Returns a
-// pointer to the array if the conversion succeeded, otherwise returns
-// NULL.
+/* Put the first n bytes of a Sicstus list in a buffer. Returns a
+ * pointer to the array if the conversion succeeded, otherwise returns
+ * NULL. The array is dynamically allocated, and should be freed by
+ * the caller. */
 char *list_to_buf(SP_term_ref data, size_t n)
 {
   char *cData = malloc(n);
@@ -64,6 +68,7 @@ char *list_to_buf(SP_term_ref data, size_t n)
   return cData;
 }
 
+/* Raise a Sicstus exception. */
 void raise_exception(char const *message)
 {
   SP_term_ref m = SP_new_term_ref();
@@ -71,10 +76,12 @@ void raise_exception(char const *message)
   SP_raise_exception(m);
 }
 
+/* Compress data in a byte list. */
 SP_term_ref zlib_compress(SP_term_ref data)
 {
   SP_term_ref zData = SP_new_term_ref();
 
+  /* Get the list length */
   size_t dataLen;
   int r = list_length(data, &dataLen);
   if (!r) {
@@ -82,6 +89,7 @@ SP_term_ref zlib_compress(SP_term_ref data)
     return zData;
   }
 
+  /* Convert byte list to a buffer */
   char *cData = list_to_buf(data, dataLen);
   if (cData == NULL) {
     raise_exception("Error in zlib_compress: could not convert list!");
@@ -110,6 +118,7 @@ SP_term_ref zlib_compress(SP_term_ref data)
     return zData;
   }
 
+  /* Convert compressed buffer to a byte list */
   SP_term_ref tail = SP_new_term_ref();
   r = SP_put_list_n_bytes(zData, tail, zSize, zcData);
   if (!r)
@@ -120,10 +129,12 @@ SP_term_ref zlib_compress(SP_term_ref data)
   return zData;
 }
 
+/* Uncompress data in a byte list. */
 SP_term_ref zlib_uncompress(SP_term_ref zData, long dataLen)
 {
   SP_term_ref data = SP_new_term_ref();
 
+  /* Get the list length */
   size_t zDataLen;
   int r = list_length(zData, &zDataLen);
   if (!r) {
@@ -131,6 +142,7 @@ SP_term_ref zlib_uncompress(SP_term_ref zData, long dataLen)
     return data;
   }
 
+  /* Convert byte list to a buffer */
   char *zcData = list_to_buf(zData, zDataLen);
   if (zcData == NULL) {
     raise_exception("Error in zlib_uncompress: could not convert list!");
@@ -163,6 +175,7 @@ SP_term_ref zlib_uncompress(SP_term_ref zData, long dataLen)
     return data;
   }
 
+  /* Convert uncompressed buffer to a byte list */
   SP_term_ref tail = SP_new_term_ref();
   r = SP_put_list_n_bytes(data, tail, dataLen, cData);
   if (!r)
