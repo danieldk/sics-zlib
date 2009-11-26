@@ -23,9 +23,12 @@ Usage
 
 The following predicates are provided:
 
-zlib_compress(+UncompressedByteList,-CompressedByteList)
-zlib_compress(+UncompressedByteList,+Level,-CompressedByteList)
-zlib_compress(+CompressedBytesList,+UncompressedLength,-UncompressedByteList)
+ zlib_compress(+UncompressedByteList,-CompressedByteList)
+ zlib_compress(+UncompressedByteList,+Level,-CompressedByteList)
+ zlib_compress_term(+Term,-CompressedByteList,-UncompressedLength)
+ zlib_compress_term(+Term,+Level,-CompressedByteList,-UncompressedLength)
+ zlib_uncompress(+CompressedBytesList,+UncompressedLength,-UncompressedByteList)
+ zlib_uncompress_term(+CompressedByteList,+UncompressedLength,-Term)
 
 It is up to the caller to keep the length of the uncompressed byte list
 for uncompression.
