@@ -76,8 +76,13 @@ void raise_exception(char const *message)
   SP_raise_exception(m);
 }
 
+SP_term_ref zlib_compress_default(SP_term_ref data)
+{
+  zlib_compress(data, Z_DEFAULT_COMPRESSION);
+}
+
 /* Compress data in a byte list. */
-SP_term_ref zlib_compress(SP_term_ref data)
+SP_term_ref zlib_compress(SP_term_ref data, long level)
 {
   SP_term_ref zData = SP_new_term_ref();
 
@@ -101,7 +106,7 @@ SP_term_ref zlib_compress(SP_term_ref data)
   char *zcData = (char *) malloc(zSize);
 
   /* Compress */
-  r = compress(zcData, &zSize, cData, dataLen);
+  r = compress2(zcData, &zSize, cData, dataLen, level);
   free(cData);
   if (r != Z_OK) {
     switch (r) {
@@ -111,6 +116,11 @@ SP_term_ref zlib_compress(SP_term_ref data)
     case Z_BUF_ERROR:
       raise_exception("Error in zlib_compress: output buffer is too small!");
       break;
+    case Z_STREAM_ERROR:
+      raise_exception("Error in zlib_compress: invalid level!");  
+      break;
+    default:
+      raise_exception("Error in zlib_compress: unknown error!");
     }
 
     free(zcData);

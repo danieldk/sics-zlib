@@ -22,12 +22,15 @@
  */
 
 :- module(zlib,[ zlib_compress/2,
+		 zlib_compress/3,
 		 zlib_uncompress/3 ]).
 
 foreign_resource(zlib,[ zlib_compress,
+			zlib_compress_default,
 			zlib_uncompress ]).
 
-foreign(zlib_compress,c,zlib_compress(+term,[-term])).
+foreign(zlib_compress_default,c,zlib_compress(+term,[-term])).
+foreign(zlib_compress,c,zlib_compress(+term,+integer,[-term])).
 foreign(zlib_uncompress,c,zlib_uncompress(+term,+integer,[-term])).
 
 :- load_foreign_resource(zlib).

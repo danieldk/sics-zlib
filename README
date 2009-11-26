@@ -24,6 +24,7 @@ Usage
 The following predicates are provided:
 
 zlib_compress(+UncompressedByteList,-CompressedByteList)
+zlib_compress(+UncompressedByteList,+Level,-CompressedByteList)
 zlib_compress(+CompressedBytesList,+UncompressedLength,-UncompressedByteList)
 
 It is up to the caller to keep the length of the uncompressed byte list
