@@ -268,3 +268,8 @@ SP_term_ref zlib_uncompress(SP_term_ref zData, long dataLen)
 
   return data;
 }
+
+void zlib_free_buffer(char *buf)
+{
+  SP_free(buf);
+}

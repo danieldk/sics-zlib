@@ -34,6 +34,7 @@
 foreign_resource(zlib,[ zlib_compress,
 			zlib_compress_buf_list,
 			zlib_compress_default,
+			zlib_free_buffer,
 			zlib_uncompress,
 			zlib_uncompress_list_buf ]).
 
@@ -41,6 +42,7 @@ foreign(zlib_compress,c,zlib_compress(+term,+integer,[-term])).
 foreign(zlib_compress_buf_list,c,zlib_compress_buf_list(+address(char),+integer,
 						   +integer,[-term])).
 foreign(zlib_compress_default,c,zlib_compress(+term,[-term])).
+foreign(zlib_free_buffer,c,zlib_free_buffer(+address)).
 foreign(zlib_uncompress,c,zlib_uncompress(+term,+integer,[-term])).
 foreign(zlib_uncompress_list_buf,c,zlib_uncompress_list_buf(+term,+integer,
 							[-address])).
@@ -59,6 +61,7 @@ zlib_compress_term(Term,Level,Compressed,Len) :-
 zlib_uncompress_term(Compressed,Len,Term) :-
     zlib_uncompress_list_buf(Compressed,Len,Addr),
     fast_buf_read(Term/Cons,Addr),
+    zlib_free_buffer(Addr),
     call_constraints(Cons).
 
 call_constraints([]).
