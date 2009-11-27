@@ -26,7 +26,17 @@
 #include <string.h>
 #include <zlib.h>
 
+#include <stdio.h>
+
 #include <sicstus/sicstus.h>
+
+/* Raise a Sicstus exception. */
+void raise_exception(char const *message)
+{
+  SP_term_ref m = SP_new_term_ref();
+  SP_put_string(m, message);
+  SP_raise_exception(m);
+}
 
 /* Get the length of a Prolog list. Returns 0 if the provided term is not
  * a list. */
@@ -68,17 +78,126 @@ char *list_to_buf(SP_term_ref data, size_t n)
   return cData;
 }
 
-/* Raise a Sicstus exception. */
-void raise_exception(char const *message)
+// Buffer to byte list
+SP_term_ref buf_to_list(char *buf, size_t len)
 {
-  SP_term_ref m = SP_new_term_ref();
-  SP_put_string(m, message);
-  SP_raise_exception(m);
+  SP_term_ref bList = SP_new_term_ref();
+  SP_term_ref tail = SP_new_term_ref();
+  int r = SP_put_list_n_bytes(bList, tail, len, buf);
+  if (!r)
+    raise_exception("Error in zlib_compress: could not convert buffer!");
+
+  return bList;
 }
 
 SP_term_ref zlib_compress_default(SP_term_ref data)
 {
   zlib_compress(data, Z_DEFAULT_COMPRESSION);
+}
+
+char *zlib_buf_compress(char *cData, size_t dataLen, int level, size_t *zSize)
+{
+  /* Prepare destination buffer */
+  *zSize = ceill((dataLen + 1) * 1.001) + 12;
+  char *zcData = (char *) malloc(*zSize);
+
+  /* Compress */
+  int r = compress2(zcData, zSize, cData, dataLen, level);
+  if (r != Z_OK) {
+    switch (r) {
+    case Z_MEM_ERROR:
+      raise_exception("Error in zlib_compress: not enough memory!");
+      break;
+    case Z_BUF_ERROR:
+      raise_exception("Error in zlib_compress: output buffer is too small!");
+      break;
+    case Z_STREAM_ERROR:
+      raise_exception("Error in zlib_compress: invalid level!");  
+      break;
+    default:
+      raise_exception("Error in zlib_compress: unknown error!");
+    }
+
+    free(zcData);
+    return NULL;
+  }
+
+  return zcData;
+}
+
+char *zlib_uncompress_buf(char *zcData, size_t zDataLen, size_t dataLen){
+  /* Output buffer */
+  char *cData = (char *) malloc(dataLen);
+
+  /* Uncompress */
+  int r = uncompress(cData, &dataLen, zcData, zDataLen);
+  if (r != Z_OK) {
+    switch(r) {
+    case Z_MEM_ERROR:
+      raise_exception("Error in zlib_uncompress: not enough memory!");
+      break;
+    case Z_BUF_ERROR:
+      raise_exception("Error in zlib_uncompress: output buffer is too small!");
+      break;
+    case Z_DATA_ERROR:
+      raise_exception("Error in zlib_uncompress: corrupted data!");
+      break;
+    default:
+      raise_exception("Error in zlib_uncompress: unknown error!");
+    }
+
+    free(cData);
+    return NULL;
+  }
+
+  return cData;
+}
+
+SP_term_ref zlib_compress_buf_list(char *cData, size_t dataLen, int level)
+{
+  /* Compress buffer */
+  size_t zSize = 0;
+  char *zcData = zlib_buf_compress(cData, dataLen, level, &zSize);
+  if (zcData == NULL) {
+    free(zcData);
+    return SP_new_term_ref();
+  }
+
+  /* Convert compressed buffer to a byte list */
+  SP_term_ref zData = buf_to_list(zcData, zSize);
+
+  free(zcData);
+
+  return zData;
+}
+
+char *zlib_uncompress_list_buf(SP_term_ref zData, size_t dataLen)
+{
+  /* Get the list length */
+  size_t zDataLen;
+  int r = list_length(zData, &zDataLen);
+  if (!r) {
+    raise_exception("Error in zlib_uncompress: argument is not a valid list!");
+    return NULL;
+  }
+
+  /* Convert byte list to a buffer */
+  char *zcData = list_to_buf(zData, zDataLen);
+  if (zcData == NULL) {
+    raise_exception("Error in zlib_uncompress: could not convert list!");
+    return NULL;
+  }
+
+  /* Uncompress buffer */
+  char *cData = zlib_uncompress_buf(zcData, zDataLen, dataLen);
+  free(zcData);
+
+  /* Copy to a Sicstus-allocated buffer for garbage collection. */
+  char *spCData = SP_malloc(dataLen);
+  memcpy(spCData, cData, dataLen);
+  free(cData);
+
+  return spCData;
 }
 
 /* Compress data in a byte list. */
@@ -101,38 +220,16 @@ SP_term_ref zlib_compress(SP_term_ref data, long level)
     return zData;
   }
 
-  /* Prepare destination buffer */
-  size_t zSize = ceill((dataLen + 1) * 1.001) + 12;
-  char *zcData = (char *) malloc(zSize);
-
-  /* Compress */
-  r = compress2(zcData, &zSize, cData, dataLen, level);
-  free(cData);
-  if (r != Z_OK) {
-    switch (r) {
-    case Z_MEM_ERROR:
-      raise_exception("Error in zlib_compress: not enough memory!");
-      break;
-    case Z_BUF_ERROR:
-      raise_exception("Error in zlib_compress: output buffer is too small!");
-      break;
-    case Z_STREAM_ERROR:
-      raise_exception("Error in zlib_compress: invalid level!");  
-      break;
-    default:
-      raise_exception("Error in zlib_compress: unknown error!");
-    }
-
+  /* Compress buffer */
+  size_t zSize = 0;
+  char *zcData = zlib_buf_compress(cData, dataLen, level, &zSize);
+  if (zcData == NULL) {
     free(zcData);
-
-    return zData;
+    return SP_new_term_ref();
   }
 
   /* Convert compressed buffer to a byte list */
-  SP_term_ref tail = SP_new_term_ref();
-  r = SP_put_list_n_bytes(zData, tail, zSize, zcData);
-  if (!r)
-    raise_exception("Error in zlib_compress: could not convert buffer!");
+  zData = buf_to_list(zcData, zSize);
 
   free(zcData);
 
@@ -159,37 +256,13 @@ SP_term_ref zlib_uncompress(SP_term_ref zData, long dataLen)
     return data;
   }
 
-  /* Output buffer */
-  char *cData = (char *) malloc(dataLen);
-
-  /* Uncompress */
-  r = uncompress(cData, &dataLen, zcData, zDataLen);
+  /* Uncompress buffer */
+  char *cData = zlib_uncompress_buf(zcData, zDataLen, dataLen);
   free(zcData);
-  if (r != Z_OK) {
-    switch(r) {
-    case Z_MEM_ERROR:
-      raise_exception("Error in zlib_uncompress: not enough memory!");
-      break;
-    case Z_BUF_ERROR:
-      raise_exception("Error in zlib_uncompress: output buffer is too small!");
-      break;
-    case Z_DATA_ERROR:
-      raise_exception("Error in zlib_uncompress: corrupted data!");
-      break;
-    default:
-      raise_exception("Error in zlib_uncompress: unknown error!");
-    }
-
-    free(cData);
-
+  if (cData == NULL)
     return data;
-  }
 
-  /* Convert uncompressed buffer to a byte list */
-  SP_term_ref tail = SP_new_term_ref();
-  r = SP_put_list_n_bytes(data, tail, dataLen, cData);
-  if (!r)
-    raise_exception("Error in zlib_uncompress: could not convert buffer!");
+  data = buf_to_list(cData, dataLen);
 
   free(cData);
 

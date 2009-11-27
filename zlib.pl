@@ -28,15 +28,22 @@
 		 zlib_uncompress/3,
 		 zlib_uncompress_term/3 ]).
 
-:- use_module(library(charsio)).
+:- use_module(library(fastrw),[ fast_buf_read/2,
+				fast_buf_write/3 ]).
 
 foreign_resource(zlib,[ zlib_compress,
+			zlib_compress_buf_list,
 			zlib_compress_default,
-			zlib_uncompress ]).
+			zlib_uncompress,
+			zlib_uncompress_list_buf ]).
 
-foreign(zlib_compress_default,c,zlib_compress(+term,[-term])).
 foreign(zlib_compress,c,zlib_compress(+term,+integer,[-term])).
+foreign(zlib_compress_buf_list,c,zlib_compress_buf_list(+address(char),+integer,
+						   +integer,[-term])).
+foreign(zlib_compress_default,c,zlib_compress(+term,[-term])).
 foreign(zlib_uncompress,c,zlib_uncompress(+term,+integer,[-term])).
+foreign(zlib_uncompress_list_buf,c,zlib_uncompress_list_buf(+term,+integer,
+							[-address])).
 
 :- load_foreign_resource(zlib).
 
@@ -46,13 +53,12 @@ zlib_compress_term(Term,Compressed,Len) :-
 zlib_compress_term(Term,Level,Compressed,Len) :-
     call_residue(copy_term(Term,TermCopy),Cons),
     numbervars(TermCopy/Cons,0,_),
-    charsio:format_to_chars('~q .',[TermCopy/Cons],Chars),
-    length(Chars,Len),
-    zlib_compress(Chars,Level,Compressed).
+    fast_buf_write(TermCopy/Cons,Len,Addr),
+    zlib_compress_buf_list(Addr,Len,Level,Compressed).
 
 zlib_uncompress_term(Compressed,Len,Term) :-
-    zlib_uncompress(Compressed,Len,Chars),
-    charsio:read_from_chars(Chars,Term/Cons),
+    zlib_uncompress_list_buf(Compressed,Len,Addr),
+    fast_buf_read(Term/Cons,Addr),
     call_constraints(Cons).
 
 call_constraints([]).
