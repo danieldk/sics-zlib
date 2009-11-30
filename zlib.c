@@ -63,9 +63,9 @@ int list_length(SP_term_ref list, size_t *len)
  * pointer to the array if the conversion succeeded, otherwise returns
  * NULL. The array is dynamically allocated, and should be freed by
  * the caller. */
-char *list_to_buf(SP_term_ref data, size_t n)
+unsigned char *list_to_buf(SP_term_ref data, size_t n)
 {
-  char *cData = malloc(n);
+  unsigned char *cData = malloc(n);
   size_t w;
   SP_term_ref tail = SP_new_term_ref();
   SP_get_list_n_bytes(data, tail, n, &w, cData);
@@ -79,7 +79,7 @@ char *list_to_buf(SP_term_ref data, size_t n)
 }
 
 // Buffer to byte list
-SP_term_ref buf_to_list(char *buf, size_t len)
+SP_term_ref buf_to_list(unsigned char *buf, size_t len)
 {
   SP_term_ref bList = SP_new_term_ref();
   SP_term_ref tail = SP_new_term_ref();
@@ -95,11 +95,12 @@ SP_term_ref zlib_compress_default(SP_term_ref data)
   zlib_compress(data, Z_DEFAULT_COMPRESSION);
 }
 
-char *zlib_buf_compress(char *cData, size_t dataLen, int level, size_t *zSize)
+unsigned char *zlib_buf_compress(unsigned char *cData, size_t dataLen,
+				 int level, size_t *zSize)
 {
   /* Prepare destination buffer */
   *zSize = ceill((dataLen + 1) * 1.001) + 12;
-  char *zcData = (char *) malloc(*zSize);
+  unsigned char *zcData = (unsigned char *) malloc(*zSize);
 
   /* Compress */
   int r = compress2(zcData, zSize, cData, dataLen, level);
@@ -125,9 +126,10 @@ char *zlib_buf_compress(char *cData, size_t dataLen, int level, size_t *zSize)
   return zcData;
 }
 
-char *zlib_uncompress_buf(char *zcData, size_t zDataLen, size_t dataLen){
+unsigned char *zlib_uncompress_buf(unsigned char *zcData, size_t zDataLen,
+				   size_t dataLen) {
   /* Output buffer */
-  char *cData = (char *) malloc(dataLen);
+  unsigned char *cData = (unsigned char *) malloc(dataLen);
 
   /* Uncompress */
   int r = uncompress(cData, &dataLen, zcData, zDataLen);
@@ -153,11 +155,12 @@ char *zlib_uncompress_buf(char *zcData, size_t zDataLen, size_t dataLen){
   return cData;
 }
 
-SP_term_ref zlib_compress_buf_list(char *cData, size_t dataLen, int level)
+SP_term_ref zlib_compress_buf_list(unsigned char *cData, size_t dataLen,
+				   int level)
 {
   /* Compress buffer */
   size_t zSize = 0;
-  char *zcData = zlib_buf_compress(cData, dataLen, level, &zSize);
+  unsigned char *zcData = zlib_buf_compress(cData, dataLen, level, &zSize);
   if (zcData == NULL) {
     free(zcData);
     return SP_new_term_ref();
@@ -171,7 +174,7 @@ SP_term_ref zlib_compress_buf_list(char *cData, size_t dataLen, int level)
   return zData;
 }
 
-char *zlib_uncompress_list_buf(SP_term_ref zData, size_t dataLen)
+unsigned char *zlib_uncompress_list_buf(SP_term_ref zData, size_t dataLen)
 {
   /* Get the list length */
   size_t zDataLen;
@@ -182,18 +185,18 @@ char *zlib_uncompress_list_buf(SP_term_ref zData, size_t dataLen)
   }
 
   /* Convert byte list to a buffer */
-  char *zcData = list_to_buf(zData, zDataLen);
+  unsigned char *zcData = list_to_buf(zData, zDataLen);
   if (zcData == NULL) {
     raise_exception("Error in zlib_uncompress: could not convert list!");
     return NULL;
   }
 
   /* Uncompress buffer */
-  char *cData = zlib_uncompress_buf(zcData, zDataLen, dataLen);
+  unsigned char *cData = zlib_uncompress_buf(zcData, zDataLen, dataLen);
   free(zcData);
 
   /* Copy to a Sicstus-allocated buffer for garbage collection. */
-  char *spCData = SP_malloc(dataLen);
+  unsigned char *spCData = (unsigned char *) SP_malloc(dataLen);
   memcpy(spCData, cData, dataLen);
   free(cData);
 
@@ -214,7 +217,7 @@ SP_term_ref zlib_compress(SP_term_ref data, long level)
   }
 
   /* Convert byte list to a buffer */
-  char *cData = list_to_buf(data, dataLen);
+  unsigned char *cData = list_to_buf(data, dataLen);
   if (cData == NULL) {
     raise_exception("Error in zlib_compress: could not convert list!");
     return zData;
@@ -222,7 +225,7 @@ SP_term_ref zlib_compress(SP_term_ref data, long level)
 
   /* Compress buffer */
   size_t zSize = 0;
-  char *zcData = zlib_buf_compress(cData, dataLen, level, &zSize);
+  unsigned char *zcData = zlib_buf_compress(cData, dataLen, level, &zSize);
   if (zcData == NULL) {
     free(zcData);
     return SP_new_term_ref();
@@ -250,14 +253,14 @@ SP_term_ref zlib_uncompress(SP_term_ref zData, long dataLen)
   }
 
   /* Convert byte list to a buffer */
-  char *zcData = list_to_buf(zData, zDataLen);
+  unsigned char *zcData = list_to_buf(zData, zDataLen);
   if (zcData == NULL) {
     raise_exception("Error in zlib_uncompress: could not convert list!");
     return data;
   }
 
   /* Uncompress buffer */
-  char *cData = zlib_uncompress_buf(zcData, zDataLen, dataLen);
+  unsigned char *cData = zlib_uncompress_buf(zcData, zDataLen, dataLen);
   free(zcData);
   if (cData == NULL)
     return data;
@@ -269,7 +272,7 @@ SP_term_ref zlib_uncompress(SP_term_ref zData, long dataLen)
   return data;
 }
 
-void zlib_free_buffer(char *buf)
+void zlib_free_buffer(unsigned char *buf)
 {
   SP_free(buf);
 }
