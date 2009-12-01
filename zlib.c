@@ -85,7 +85,7 @@ SP_term_ref buf_to_list(unsigned char *buf, size_t len)
   SP_term_ref tail = SP_new_term_ref();
   int r = SP_put_list_n_bytes(bList, tail, len, buf);
   if (!r)
-    raise_exception("Error in zlib_compress: could not convert buffer!");
+    raise_exception("Error in buf_to_list: could not convert buffer!");
 
   return bList;
 }
@@ -180,14 +180,14 @@ unsigned char *zlib_uncompress_list_buf(SP_term_ref zData, size_t dataLen)
   size_t zDataLen;
   int r = list_length(zData, &zDataLen);
   if (!r) {
-    raise_exception("Error in zlib_uncompress: argument is not a valid list!");
+    raise_exception("Error in zlib_uncompress_list_buf: argument is not a valid list!");
     return NULL;
   }
 
   /* Convert byte list to a buffer */
   unsigned char *zcData = list_to_buf(zData, zDataLen);
   if (zcData == NULL) {
-    raise_exception("Error in zlib_uncompress: could not convert list!");
+    raise_exception("Error in zlib_uncompress_list_buf: could not convert list!");
     return NULL;
   }
 
