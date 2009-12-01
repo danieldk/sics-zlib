@@ -194,6 +194,8 @@ unsigned char *zlib_uncompress_list_buf(SP_term_ref zData, size_t dataLen)
   /* Uncompress buffer */
   unsigned char *cData = zlib_uncompress_buf(zcData, zDataLen, dataLen);
   free(zcData);
+  if (cData == NULL)
+    return NULL;
 
   /* Copy to a Sicstus-allocated buffer for garbage collection. */
   unsigned char *spCData = (unsigned char *) SP_malloc(dataLen);
